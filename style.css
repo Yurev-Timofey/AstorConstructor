@@ -1,0 +1,30 @@
+.dot {
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    z-index: 2;
+}
+
+.circle {
+    cursor: pointer;
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    left: 300px;
+    z-index: 2;
+}
+
+.partPicture {
+    position: absolute;
+    width: 300px;
+    height: 200px;
+    z-index: 1;
+}
+
+#circle_red {
+    top: 10px;
+}
+
+#circle_blue {
+    top: 100px
+}
