@@ -4,16 +4,24 @@ class Moveable {
         this.element = document.getElementById(object_id);
     }
 
+    getX() {
+        return this.element.getBoundingClientRect().left
+    }
+
+    getY() {
+        return this.element.getBoundingClientRect().top
+    }
+
     moveAt(x, y) {
         this.element.style.left = x + 'px';
         this.element.style.top = y + 'px';
     }
 
-    // moveWith(offsetX, offsetY) {
-    //     x = this.element.getBoundingClientRect().left + offsetX;
-    //     y = this.element.getBoundingClientRect().top + offsetY;
-    //     this.moveAt(x, y)
-    // }
+    moveWith(offsetX, offsetY) {
+        let x = this.element.getBoundingClientRect().left - offsetX;
+        let y = this.element.getBoundingClientRect().top - offsetY;
+        this.moveAt(x, y);
+    }
 
     moveToCenter(pageX, pageY) {
         let x = pageX - (this.element.getBoundingClientRect().width / 2)
@@ -34,6 +42,17 @@ class Draggable extends Moveable {
         this.element.addEventListener("mousedown", this.mousedown.bind(this));
         this.element.addEventListener("mouseup", this.mouseup.bind(this));
         this.element.addEventListener("dragstart", this.dragstart);
+    }
+
+    moveAt(x, y) {
+        let oldX = this.getX();
+        let oldY = this.getY();
+
+        super.moveAt(x, y);
+
+        this.element.dispatchEvent(new CustomEvent("moved", {
+            detail: { shiftX: oldX - this.getX(), shiftY: oldY - this.getY() }
+        }))
     }
 
     onMouseMove(event) {
@@ -156,10 +175,15 @@ class Part {
 
         this.dot.moveToCenter(this.part.getLeftPointX(), this.part.getPointY());
         this.circle.moveToCenter(this.part.getRightPointX(), this.part.getPointY());
-        this.foo();
+
+        this.circle.element.addEventListener("moved", this.onCircleMove.bind(this))
     }
 
-    foo() {}
+    onCircleMove(event) {
+        this.dot.moveWith(event.detail.shiftX, event.detail.shiftY);
+        this.part.moveWith(event.detail.shiftX, event.detail.shiftY);
+    }
+
 
 
     createHtmlElement(innerHTML) {
@@ -170,3 +194,4 @@ class Part {
 }
 
 new Part("sidenie");
+new Part("podlokotnik_big_left")
