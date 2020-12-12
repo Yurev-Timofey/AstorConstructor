@@ -9,11 +9,11 @@ class Moveable {
         this.element.style.top = y + 'px';
     }
 
-    moveWith(offsetX, offsetY) {
-        x = this.element.getBoundingClientRect().left + offsetX;
-        y = this.element.getBoundingClientRect().top + offsetY;
-        this.moveAt(x, y)
-    }
+    // moveWith(offsetX, offsetY) {
+    //     x = this.element.getBoundingClientRect().left + offsetX;
+    //     y = this.element.getBoundingClientRect().top + offsetY;
+    //     this.moveAt(x, y)
+    // }
 
     moveToCenter(pageX, pageY) {
         let x = pageX - (this.element.getBoundingClientRect().width / 2)
@@ -107,10 +107,6 @@ class DragPoint extends Draggable {}
 class DropPoint extends Moveable {}
 
 class PartPicture extends Moveable {
-    constructor(object_id) {
-        super(object_id)
-    }
-
     getLeftPointX() {
         return this.element.getBoundingClientRect().left;
     }
