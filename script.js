@@ -108,19 +108,19 @@ class Draggable extends Moveable {
         elem.style.background = ''
         this.inDroppable = false
 
-        if (this.attachedToDroppable)
+        if (this.isAttachedToDroppable)
             this.detachedFromDroppable()
     }
 
     attachedToDroppable() {
+        this.isAttachedToDroppable = true
+
         let boundingRect = this.currentDroppable.getBoundingClientRect()
         this.moveToCenter(boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2)
-
-        this.attachedToDroppable = true
     }
 
     detachedFromDroppable() {
-        this.attachedToDroppable = false
+        this.isAttachedToDroppable = false
     }
 
 }
@@ -211,10 +211,10 @@ class DragPointWithFilter extends DragPoint {
 class Part {
     constructor(partName, assembly) {
         this.partName = partName
-        this.assembly = null //Ссылка на двусвязный список, в котором находится эта деталь
+        this.assembly = null //Ссылка на связный список, в котором находится эта деталь
 
-        this.next = null //Part является нодой двусвязного списка
-        this.previous = null
+        this.next = null //Part является нодой связного списка
+            // this.previous = null
 
         this.dotId = "dot_" + partName
         this.circleId = "circle_" + partName
@@ -247,7 +247,7 @@ class Part {
 
         this.dot.moveWith(shiftX, shiftY)
         this.part.moveWith(shiftX, shiftY)
-        if (this.next)
+        if (!this.next)
             this.assembly.onPartMove(shiftX, shiftY, this) //Можно было бы реализовать через ивенты, но не вижу в этом смысла
     }
 
@@ -258,22 +258,27 @@ class Part {
     }
 
     onDotConnencted(event) {
-        // this.previous = event.detail.part
-        // event.detail.part.next = this
+        let previous = event.detail.part
+            // event.detail.part.next = this
 
-        this.assembly.merge(event.detail.part.assembly)
+        // event.detail.part.assembly.merge(this.assembly)
 
-        event.detail.part.assembly = this.assembly
+        let newAssembly = Assembly.merge(previous.assembly, this.assembly)
+
+        this.assembly = newAssembly
+        previous.assembly = newAssembly
+
+        console.log(this.assembly)
     }
 
     onDotDisconnected(event) {
         let eventPart = event.detail.part //TODO нормально тут всё назвать
 
         let newAssembly = new Assembly()
-        newAssembly.copyAfter(eventPart.assembly, eventPart)
+        newAssembly.copyBefore(eventPart.assembly, eventPart)
         eventPart.assembly = newAssembly
 
-        this.assembly.removeAfter(eventPart)
+        // this.assembly.removeBefore(eventPart)
     }
 
     createHtmlElement(innerHTML) {
@@ -283,17 +288,10 @@ class Part {
     }
 }
 
-// class Node {
-//     constructor(value) {
-//         this.value = value
-//         this.next = null
-//     }
-// }
-
 class Assembly { //Doubly linked list
     constructor() {
         this.head = null
-        this.length = 0
+        this.debugId = Math.floor(Math.random() * 1001)
     }
 
     static createOnePartAssembly(partName) { //Я абсолютно не уверен, можно ли использовать так статические методы, но это мой код!!! Что хочу то и делаю!!!    
@@ -307,9 +305,12 @@ class Assembly { //Doubly linked list
 
     onPartMove(shiftX, shiftY, movedPart) {
         let current = this.head
+
         while (current) {
-            if (current != movedPart)
+            if (current != movedPart) {
                 current.onAssemblyMove(shiftX, shiftY)
+            }
+
             current = current.next
         }
     }
@@ -317,8 +318,9 @@ class Assembly { //Doubly linked list
     addToTheEnd(part) {
         part.assembly = this
 
-        if (this.length === 0) {
+        if (!this.head) {
             this.head = part
+            part.next = null
         } else {
             let current = this.head
 
@@ -327,55 +329,47 @@ class Assembly { //Doubly linked list
             }
 
             current.next = part
+            part.next = null
         }
-
-        this.length++
     }
 
-    // contains(part) {
-    //     if (this.length === 0)
-    //         return false
+    static merge(firstAssembly, secondAssembly) { //Превращает LinkedList в один, firsAssembly находится в начале новго LinkedList
+        let newAssembly = new Assembly()
 
+        let current = firstAssembly.head
 
-    //     let current = this.head
+        while (current) { //Добавляем первый LinkedList
+            let tempNext = current.next //В процессе addToTheEnd ссылка на следующий элемент стирается, поэтому храним её здесь
+            newAssembly.addToTheEnd(current)
+            current = tempNext
+        }
 
-    //     if (current === part)
-    //         return true
+        current = secondAssembly.head
 
-    //     while (current.next) {
-    //         if (current === part)
-    //             return true
-
-    //         current = current.next
-    //     }
-
-    //     return false
-    // }
-
-    merge(assembly) {
-        let current = assembly.head
-        while (current) {
-            this.addToTheEnd(current)
+        while (current) { //Добавляем второй LinkedList
+            newAssembly.addToTheEnd(current)
             current = current.next
-            this.length++
         }
+
+        return newAssembly
     }
 
-    copyAfter(assembly, part) {
+    copyBefore(assembly, part) { //Перемещает linked list до элемента включительно
         let current = assembly.head
 
-        while (current != part && current)
-            current = current.next
-
         while (current) {
+            assembly.head = current.next
             this.addToTheEnd(current)
+
+            if (current === part)
+                break
+
             current = current.next
-            this.length++
         }
+
     }
 
-    removeAfter(part) {
-        console.log(this.getLength())
+    removeBefore(part) { //Удаляет элементы из linked list до элемента включительно
         let current = this.head
         let previous = null
 
@@ -383,7 +377,9 @@ class Assembly { //Doubly linked list
             previous = current
             current = current.next
         }
-        previous.next = null
+
+        this.head = current.next
+
         console.log(this.getLength())
     }
 
