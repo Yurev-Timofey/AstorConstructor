@@ -151,17 +151,6 @@ class DragPoint extends Draggable {
         this.element.style.top = y + 'px'
     }
 
-    // moveWithCursorShift(event) {
-    //     let oldX = this.getX()
-    //     let oldY = this.getY()
-
-    //     super.moveWithCursorShift(event)
-
-    //     this.element.dispatchEvent(new CustomEvent("circleMoved", {
-    //         detail: { shiftX: oldX - this.getX(), shiftY: oldY - this.getY() }
-    //     }))
-    // }
-
     attachedToDroppable() {
         super.attachedToDroppable()
 
@@ -249,6 +238,9 @@ class Part {
         this.part.moveWith(shiftX, shiftY)
         if (!this.next)
             this.assembly.onPartMove(shiftX, shiftY, this) //Можно было бы реализовать через ивенты, но не вижу в этом смысла
+        else if (this != this.assembly.head) {
+            this.assembly.onConnectedPartMove(shiftX, shiftY, this)
+        }
     }
 
     onAssemblyMove(shiftX, shiftY) {
@@ -259,9 +251,6 @@ class Part {
 
     onDotConnencted(event) {
         let previous = event.detail.part
-            // event.detail.part.next = this
-
-        // event.detail.part.assembly.merge(this.assembly)
 
         let newAssembly = Assembly.merge(previous.assembly, this.assembly)
 
@@ -272,13 +261,11 @@ class Part {
     }
 
     onDotDisconnected(event) {
-        let eventPart = event.detail.part //TODO нормально тут всё назвать
+        let eventPart = event.detail.part //TODO: нормально тут всё назвать
 
         let newAssembly = new Assembly()
-        newAssembly.copyBefore(eventPart.assembly, eventPart)
+        newAssembly.extractBefore(eventPart.assembly, eventPart)
         eventPart.assembly = newAssembly
-
-        // this.assembly.removeBefore(eventPart)
     }
 
     createHtmlElement(innerHTML) {
@@ -288,7 +275,7 @@ class Part {
     }
 }
 
-class Assembly { //Doubly linked list
+class Assembly { //linked list
     constructor() {
         this.head = null
         this.debugId = Math.floor(Math.random() * 1001)
@@ -307,6 +294,18 @@ class Assembly { //Doubly linked list
         let current = this.head
 
         while (current) {
+            if (current != movedPart) {
+                current.onAssemblyMove(shiftX, shiftY)
+            }
+
+            current = current.next
+        }
+    }
+
+    onConnectedPartMove(shiftX, shiftY, movedPart) {
+        let current = this.head
+
+        while (current.next) {
             if (current != movedPart) {
                 current.onAssemblyMove(shiftX, shiftY)
             }
@@ -338,6 +337,8 @@ class Assembly { //Doubly linked list
 
         let current = firstAssembly.head
 
+        //TODO: Объединить оба цикла в один
+
         while (current) { //Добавляем первый LinkedList
             let tempNext = current.next //В процессе addToTheEnd ссылка на следующий элемент стирается, поэтому храним её здесь
             newAssembly.addToTheEnd(current)
@@ -347,31 +348,33 @@ class Assembly { //Doubly linked list
         current = secondAssembly.head
 
         while (current) { //Добавляем второй LinkedList
+            let tempNext = current.next
             newAssembly.addToTheEnd(current)
-            current = current.next
+            current = tempNext
         }
 
         return newAssembly
     }
 
-    copyBefore(assembly, part) { //Перемещает linked list до элемента включительно
+    extractBefore(assembly, part) { //Перемещает linked list до элемента включительно
         let current = assembly.head
 
         while (current) {
-            assembly.head = current.next
+            let tempNext = current.next
+            assembly.head = tempNext
+
             this.addToTheEnd(current)
 
             if (current === part)
                 break
 
-            current = current.next
+            current = tempNext
         }
 
     }
 
     removeBefore(part) { //Удаляет элементы из linked list до элемента включительно
         let current = this.head
-        let previous = null
 
         while (current != part && current) {
             previous = current
@@ -385,25 +388,17 @@ class Assembly { //Doubly linked list
 
     getLength() {
         let current = this.head
-        let length = 0;
+        let length = 0
 
         while (current) {
             current = current.next
-            length++;
+            length++
         }
 
         return length
     }
 }
 
-// let sidenie = new Part("sidenie")
-// let podlokotnik = new Part("podlokotnik_big_left")
-
-// var assembly = new Assembly()
-// assembly.addToTheEnd(sidenie)
-
-// var assembly2 = new Assembly()
-// assembly2.addToTheEnd(podlokotnik)
 Assembly.createOnePartAssembly("sidenie")
 Assembly.createOnePartAssembly("podlokotnik_big_left")
 Assembly.createOnePartAssembly("podlokotnik_thin_right")
