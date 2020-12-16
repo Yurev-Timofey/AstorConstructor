@@ -132,7 +132,7 @@ class DragPoint extends Draggable {
         this.attachedPart = part
     }
 
-    moveAt(x, y) {
+    moveAt(x, y, withoutEvent) {
         let oldX = this.getX()
         let oldY = this.getY()
 
@@ -141,6 +141,16 @@ class DragPoint extends Draggable {
         this.element.dispatchEvent(new CustomEvent("circleMoved", {
             detail: { shiftX: oldX - this.getX(), shiftY: oldY - this.getY() }
         }))
+    }
+
+    moveAtWithoutEvent(x, y) {
+        super.moveAt(x, y)
+    }
+
+    moveToCenterWithoutEvent(pageX, pageY) {
+        let x = pageX - (this.element.getBoundingClientRect().width / 2)
+        let y = pageY - (this.element.getBoundingClientRect().height / 2)
+        this.moveAtWithoutEvent(x, y)
     }
 
     moveWith(offsetX, offsetY) { //moveWith переопределён для того, чтобы не вызывать event
@@ -171,17 +181,28 @@ class DragPoint extends Draggable {
 class DropPoint extends Moveable {}
 
 class PartPicture extends Moveable {
+    constructor(object_id) {
+        super(object_id)
+
+        this.element.addEventListener("load", function(event) {
+            this.width = event.target.naturalWidth
+            this.height = event.target.naturalHeight
+            this.element.dispatchEvent(new CustomEvent("imageSizeIsSet"))
+        }.bind(this))
+    }
 
     getLeftPointX() {
         return this.element.getBoundingClientRect().left
     }
 
     getRightPointX() {
-        return this.element.getBoundingClientRect().right
+        // console.log(this.element.naturalWidth + " " + this.width)
+        // console.log(this.element.getBoundingClientRect().left + this.width)
+        return this.element.getBoundingClientRect().left + this.width
     }
 
     getPointY() {
-        return this.element.getBoundingClientRect().top + this.element.getBoundingClientRect().height / 2
+        return this.element.getBoundingClientRect().top + this.height / 2
     }
 }
 
@@ -198,9 +219,10 @@ class DragPointWithFilter extends DragPoint {
 }
 
 class Part {
-    constructor(partName, assembly) {
+    constructor(partName, pointsYOffset = 0) {
         this.partName = partName
         this.assembly = null //Ссылка на связный список, в котором находится эта деталь
+        this.pointsYOffset = pointsYOffset
 
         this.next = null //Part является нодой связного списка
             // this.previous = null
@@ -218,12 +240,15 @@ class Part {
 
         this.dot = new DropPoint(this.dotId)
         this.circle = new DragPoint(this.circleId, this)
-        this.part = new PartPicture(this.partPictureId)
+        this.partPic = new PartPicture(this.partPictureId)
 
-        this.part.moveAt(200, 200)
+        // this.partPic.moveAt(200, 200)
 
-        this.dot.moveToCenter(this.part.getLeftPointX(), this.part.getPointY())
-        this.circle.moveToCenter(this.part.getRightPointX(), this.part.getPointY())
+        this.partPic.element.addEventListener("imageSizeIsSet", function() {
+            this.dot.moveToCenter(this.partPic.getLeftPointX(), this.partPic.getPointY() - this.pointsYOffset)
+            this.circle.moveToCenterWithoutEvent(this.partPic.getRightPointX(), this.partPic.getPointY() - this.pointsYOffset)
+        }.bind(this))
+
 
         this.circle.element.addEventListener("circleMoved", this.onCircleMove.bind(this))
         this.dot.element.addEventListener("dotConnected", this.onDotConnencted.bind(this))
@@ -235,7 +260,7 @@ class Part {
         let shiftY = event.detail.shiftY
 
         this.dot.moveWith(shiftX, shiftY)
-        this.part.moveWith(shiftX, shiftY)
+        this.partPic.moveWith(shiftX, shiftY)
         if (!this.next)
             this.assembly.onPartMove(shiftX, shiftY, this) //Можно было бы реализовать через ивенты, но не вижу в этом смысла
         else if (this != this.assembly.head) {
@@ -246,7 +271,7 @@ class Part {
     onAssemblyMove(shiftX, shiftY) {
         this.circle.moveWith(shiftX, shiftY)
         this.dot.moveWith(shiftX, shiftY)
-        this.part.moveWith(shiftX, shiftY)
+        this.partPic.moveWith(shiftX, shiftY)
     }
 
     onDotConnencted(event) {
@@ -281,10 +306,10 @@ class Assembly { //linked list
         this.debugId = Math.floor(Math.random() * 1001)
     }
 
-    static createOnePartAssembly(partName) { //Я абсолютно не уверен, можно ли использовать так статические методы, но это мой код!!! Что хочу то и делаю!!!    
+    static createOnePartAssembly(partName, pointsYOffset) { //Я абсолютно не уверен, можно ли использовать так статические методы, но это мой код!!! Что хочу то и делаю!!!    
         let assembly = new Assembly()
 
-        let part = new Part(partName)
+        let part = new Part(partName, pointsYOffset)
 
         assembly.addToTheEnd(part)
         return assembly
@@ -332,7 +357,7 @@ class Assembly { //linked list
         }
     }
 
-    static merge(firstAssembly, secondAssembly) { //Превращает LinkedList в один, firsAssembly находится в начале новго LinkedList
+    static merge(firstAssembly, secondAssembly) { //Превращает LinkedList в один, firsAssembly находится в начале нового LinkedList
         let newAssembly = new Assembly()
 
         let current = firstAssembly.head
@@ -382,8 +407,6 @@ class Assembly { //linked list
         }
 
         this.head = current.next
-
-        console.log(this.getLength())
     }
 
     getLength() {
@@ -401,4 +424,4 @@ class Assembly { //linked list
 
 Assembly.createOnePartAssembly("sidenie")
 Assembly.createOnePartAssembly("podlokotnik_big_left")
-Assembly.createOnePartAssembly("podlokotnik_thin_right")
+Assembly.createOnePartAssembly("podlokotnik_thin_right", 63)
