@@ -132,7 +132,7 @@ class DragPoint extends Draggable {
         this.attachedPart = part
     }
 
-    moveAt(x, y, withoutEvent) {
+    moveAt(x, y) {
         let oldX = this.getX()
         let oldY = this.getY()
 
@@ -184,9 +184,7 @@ class PartPicture extends Moveable {
     constructor(object_id) {
         super(object_id)
 
-        this.element.addEventListener("load", function(event) {
-            this.width = event.target.naturalWidth
-            this.height = event.target.naturalHeight
+        this.element.addEventListener("load", function() { //Мы ждем прогрузку картинок для того, чтобы их размер был просчитан
             this.element.dispatchEvent(new CustomEvent("imageSizeIsSet"))
         }.bind(this))
     }
@@ -196,13 +194,11 @@ class PartPicture extends Moveable {
     }
 
     getRightPointX() {
-        // console.log(this.element.naturalWidth + " " + this.width)
-        // console.log(this.element.getBoundingClientRect().left + this.width)
-        return this.element.getBoundingClientRect().left + this.width
+        return this.element.getBoundingClientRect().left + this.element.naturalWidth
     }
 
     getPointY() {
-        return this.element.getBoundingClientRect().top + this.height / 2
+        return this.element.getBoundingClientRect().top + this.element.naturalHeight / 2
     }
 }
 
@@ -221,11 +217,10 @@ class DragPointWithFilter extends DragPoint {
 class Part {
     constructor(partName, pointsYOffset = 0) {
         this.partName = partName
-        this.assembly = null //Ссылка на связный список, в котором находится эта деталь
         this.pointsYOffset = pointsYOffset
 
+        this.assembly = null //Ссылка на связный список, в котором находится эта деталь
         this.next = null //Part является нодой связного списка
-            // this.previous = null
 
         this.dotId = "dot_" + partName
         this.circleId = "circle_" + partName
@@ -242,13 +237,10 @@ class Part {
         this.circle = new DragPoint(this.circleId, this)
         this.partPic = new PartPicture(this.partPictureId)
 
-        // this.partPic.moveAt(200, 200)
-
         this.partPic.element.addEventListener("imageSizeIsSet", function() {
             this.dot.moveToCenter(this.partPic.getLeftPointX(), this.partPic.getPointY() - this.pointsYOffset)
             this.circle.moveToCenterWithoutEvent(this.partPic.getRightPointX(), this.partPic.getPointY() - this.pointsYOffset)
         }.bind(this))
-
 
         this.circle.element.addEventListener("circleMoved", this.onCircleMove.bind(this))
         this.dot.element.addEventListener("dotConnected", this.onDotConnencted.bind(this))
@@ -281,16 +273,14 @@ class Part {
 
         this.assembly = newAssembly
         previous.assembly = newAssembly
-
-        console.log(this.assembly)
     }
 
     onDotDisconnected(event) {
-        let eventPart = event.detail.part //TODO: нормально тут всё назвать
-
+        let disconnectedPart = event.detail.part
         let newAssembly = new Assembly()
-        newAssembly.extractBefore(eventPart.assembly, eventPart)
-        eventPart.assembly = newAssembly
+
+        newAssembly.extractBefore(disconnectedPart.assembly, disconnectedPart)
+        disconnectedPart.assembly = newAssembly
     }
 
     createHtmlElement(innerHTML) {
@@ -306,12 +296,13 @@ class Assembly { //linked list
         this.debugId = Math.floor(Math.random() * 1001)
     }
 
-    static createOnePartAssembly(partName, pointsYOffset) { //Я абсолютно не уверен, можно ли использовать так статические методы, но это мой код!!! Что хочу то и делаю!!!    
+    //Я абсолютно не уверен, можно ли использовать так статические методы, но это мой код!!! Что хочу то и делаю!!!
+    static createOnePartAssembly(partName, pointsYOffset) {
         let assembly = new Assembly()
-
         let part = new Part(partName, pointsYOffset)
 
         assembly.addToTheEnd(part)
+
         return assembly
     }
 
@@ -360,23 +351,17 @@ class Assembly { //linked list
     static merge(firstAssembly, secondAssembly) { //Превращает LinkedList в один, firsAssembly находится в начале нового LinkedList
         let newAssembly = new Assembly()
 
-        let current = firstAssembly.head
-
-        //TODO: Объединить оба цикла в один
-
-        while (current) { //Добавляем первый LinkedList
-            let tempNext = current.next //В процессе addToTheEnd ссылка на следующий элемент стирается, поэтому храним её здесь
-            newAssembly.addToTheEnd(current)
-            current = tempNext
+        let copyList = function(head) {
+            let current = head
+            while (current) {
+                let tempNext = current.next //В процессе addToTheEnd ссылка на следующий элемент стирается, поэтому храним её здесь
+                newAssembly.addToTheEnd(current)
+                current = tempNext
+            }
         }
 
-        current = secondAssembly.head
-
-        while (current) { //Добавляем второй LinkedList
-            let tempNext = current.next
-            newAssembly.addToTheEnd(current)
-            current = tempNext
-        }
+        copyList(firstAssembly.head)
+        copyList(secondAssembly.head)
 
         return newAssembly
     }
